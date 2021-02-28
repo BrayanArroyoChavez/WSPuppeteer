@@ -2,6 +2,10 @@
  * Autor: Arroyo Chávez Brayan Alberto
  * Fecha: February 22, 2021
  */
+/**
+ * Autor: Arroyo Chávez Brayan Alberto
+ * Fecha: February 22, 2021
+ */
 
 /**
  * + Se importa la libreria cheerio y axios
@@ -9,40 +13,46 @@
  * + La libreria axios nos permite acceder a la página destino
  * + ./connection para importar la conexion a la base de datos
  */
-const cheerio = require('cheerio');
-const axios = require('axios');
-const date = require('date-and-time');
-const connection = require('./connection')
+const puppeteer = require('puppeteer');
 
 async function init(){
-    /**
-     * + En la constante html se guarda la página destino y la constante $ se guarda la página extraida 
-     * convertida en un objetivo de cheerio.
-     * + Se utiliza el await ya que es una operación que podria requerir de mucho tiempo y es necesario que 
-     * se concluya con la ejecución de estas dos operaciones antes de poder continuar.
-     */
-    const html = await axios.get('https://mx.investing.com/crypto/');
-    const $ = await cheerio.load(html.data);
+    const browser = await puppeteer.launch({headless: false});
+    const page = await browser.newPage();
 
-    /**
-     * + Extracción de la información de interes de la página para el caso en especifico de esta página la 
-     * información se encontraba dentro de los registros del cuerpo de una tabla.
-     * + Esto nos trae todo el codigo html de la tabla que se encuentra en la página.
-     * + Para este caso se extrajeron tres valores en especifico name, symb y price son los nombres de las 
-     * clases que contienen la información deseada, se hace uso de la función text para traer unicamente el
-     * texto encontrada en la etiqueta de la clase.
-     */
-    const now = new Date();
-    var datetime = date.format(now, 'YYYY-MM-DD HH:mm:ss'); 
-    $('tbody tr').each((i,el) =>{
-    var name = $(el).find('.name').text();
-    var symb = $(el).find('.symb').text();
-    var price = $(el).find('.price').text();
-    var sql = "INSERT INTO criptomonedas (name, symb, price, date) VALUES ('"+name+"', '"+symb+"','"+price+"','"+datetime+"')";
-    connection.con.query(sql, function (err, result) {
-        if (err) throw err;
+    await page.goto('http://amazon.com.mx');
+    
+    await page.type('#twotabsearchtextbox','juegos nintendo switch');
+    await page.click('#nav-search-submit-button')
+    await page.waitForSelector('[data-component-type=s-search-result]')
+
+    await page.waitForTimeout({timeout: 2000});
+    await page.screenshot({ path: 'amazon.jpg'});
+
+    const enlaces = await page.evaluate(() => {
+        const elements = document.querySelectorAll('[data-component-type=s-search-result] h2 a');
+        const enlaces = [];
+        for (let element of elements){
+            enlaces.push(element.href);
+        }
+        return enlaces;
     });
-    });
+
+    result = [];
+    for (let enlace of enlaces){
+        await page.goto(enlace);
+        await page.waitForSelector('#productTitle');
+
+        const res = await page.evaluate(() => {
+            const res = {};
+            res.title = document.querySelector('#productTitle').innerText;
+            return res;
+        });
+        result.push(res);
+    }
+
+    console.log(result)
+
+    await browser.close();
 }
 
 
